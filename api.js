@@ -6,8 +6,9 @@ const $k = "bfddfd:b:c5b5bdd976fbc::86dec9b:bfbc:685cgc7115389"
 const IC = "987264ef98b:159fe89dd9bf986fc97ggcd7:27dg95dd28173b45f48b:d8e397"
 
 class MT4 {
-    constructor(user_info) {
+    constructor(user_info, password) {
         this.user_info = user_info;
+        this.password = password;
         this.algo = {
             name: 'AES-CBC',
             iv: new Uint8Array(16)
@@ -49,12 +50,10 @@ class MT4 {
 
         return token_data
     }
-    async getData(op, data) {
-        return await subtle.encrypt(this.algo, this.encryption_keys.main, this.init(op, data))
-    }
+
     //Ze()
     init(op, data) {
-        var bufAlias = new Uint8Array(4 + 0)
+        let bufAlias = new Uint8Array(4 + 0)
         if (data) {
             bufAlias = new Uint8Array(4 + data.byteLength)
             bufAlias.set(new Uint8Array(data), 4)
@@ -69,10 +68,10 @@ class MT4 {
     }
     //Xf()
     createKey(key) {
-        var result = [];
+        let result = [];
     
-        for (var index = 0; index < key.length; index++) {
-            var charCode = key.charCodeAt(index);
+        for (let index = 0; index < key.length; index++) {
+            let charCode = key.charCodeAt(index);
     
             if (charCode === 28) {
                 result.push("&");
@@ -87,11 +86,11 @@ class MT4 {
     }
     //ad()
     normalizeKey(key) {
-        var result = [];
-        var halfLength = key.length / 2;
+        let result = [];
+        let halfLength = key.length / 2;
     
-        for (var index = 0; index < halfLength; index++) {
-            var hexSubstring = key.substr(2 * index, 2);
+        for (let index = 0; index < halfLength; index++) {
+            let hexSubstring = key.substr(2 * index, 2);
     
             if (hexSubstring) {
                 result.push(Number("0x" + hexSubstring));
@@ -100,14 +99,12 @@ class MT4 {
     
         return (new Uint8Array(result));
     }
-    async password() {
-        const password = this.write16('TU6sIxL', 64 + 16);
+    async getPassword() {
+        const password = this.write16(this.password, 64 + 16);
         const window_spec = this.normalizeKey('67068786ddd67fb402e56d865f299372'); // ['518842620158', 'Win32', 'WebKit', '0', 'en-GB', '2560x1440']
         const pw_buf = this.init(this.op_codes.password, this.pw_window_Js(password, window_spec))
 
-        const pw_data = await subtle.encrypt(this.algo, this.encryption_keys.main, pw_buf)
-
-        return pw_data
+        return pw_buf;
     }
     //Js()
     pw_window_Js(password, window) {
@@ -121,7 +118,7 @@ class MT4 {
     
         const buf = new DataView(new ArrayBuffer(len || string.length))
     
-        for (var i = 0; i < string.length; i++) {
+        for (let i = 0; i < string.length; i++) {
             buf.setInt8(i, string.charCodeAt(i), true)
         }
     
@@ -132,9 +129,9 @@ class MT4 {
     
         const buf = new DataView(new ArrayBuffer(len || string.length))
     
-        var offset = 0
+        let offset = 0
     
-        for (var i = 0; i < string.length; i++) {
+        for (let i = 0; i < string.length; i++) {
             buf.setInt16(offset, string.charCodeAt(i), true)
             offset += 2
         }
@@ -150,49 +147,11 @@ class MT4 {
         }
         return string;
     }
-    getBars(data, offset) {
-        const d = [];
-        d[0] = 1000 * data.getInt32(offset, true);
-        d[1] = data.getInt32(offset += 4, true);
-        d[2] = data.getInt32(offset += 4, true);
-        d[3] = data.getInt32(offset += 4, true);
-        d[4] = data.getInt32(offset += 4, true);
-        d[5] = data.getFloat64(offset + 4, true);
-
-        // Maintains precision 
-        const digits = Math.pow(10, 5);
-        d[2] += d[1];
-        d[3] += d[1];
-        d[4] += d[1];
-
-        d[1] /= digits;
-        d[2] /= digits;
-        d[3] /= digits;
-        d[4] /= digits;
-        return d
-    }
-    requestAsset(q) {
-        const test_data = {
-            asset: "NZDCHF.b",
-            period: 1,
-            from: 0,
-            to: Date.now(),
-        }
-        const {asset, period, from, to} = test_data
-        let offset = 0;
-        let data = new DataView(new ArrayBuffer(24))
-
-        for (let i = 0; i < asset.length; i++) {
-            data.setInt8(i, asset.charCodeAt(i), true)
-        }
-
-        data.setInt32(offset += 12, period, true); // period (minutes) eg 1
-        data.setInt32(offset += 4, from / 1000, true); // from
-        data.setInt32(offset + 4, to ? to / 1000 : 2147483647, true); // to
-        return data.buffer; 
+    async encrypt(message) {
+        return await subtle.encrypt(this.algo, this.encryption_keys.main, message);
     }
     async decrypt(message) {
-        return await subtle.decrypt(this.algo, this.encryption_keys.main, message)
+        return await subtle.decrypt(this.algo, this.encryption_keys.main, message);
     }
 }
  

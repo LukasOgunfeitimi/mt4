@@ -1,20 +1,19 @@
 const WebSocket = require('ws');
 const fetch = require('./fetch.js')
 const MT4 = require('./api.js')
+const send = require('./prices.js')
+const Asset = require('./asset.js')
 
 class bot {
-    constructor(server, user_info) {
+    constructor(server, user_info, password) {
         this.server = server
         this.socket = null;
-        this.api = new MT4(user_info);
+        this.api = new MT4(user_info, password);
         this.user_info = user_info;
-        this.assets = []
-        /*
-        {
-            key: data.key,
-            token: data.token
-        }
-        */
+        this.wantedAssets = ['XAUUSD.b']
+        this.assets = [];
+        this.encryption = false;
+        this.lastSend = 0;
         this.connect()
     }
     async connect() {
@@ -45,85 +44,189 @@ class bot {
                 const id = data.getUint16(0, true);
                 console.log('Recieved ID: ' + id)
 
-                const password = await this.api.password()
+                this.encryption = true;
+
+                const password = await this.api.getPassword()
 
                 this.send(password)
                 break
             case 1:
+                this.send(await this.api.init(3))
                 break;
             case 15: // connection estiablished
                 const msg = new DataView(d).getUint32(0, true);
                 if (msg === 0) {
                     console.log('connection success')
 
-                    this.send(await this.api.getData(3))
-                    this.send(await this.api.getData(6))
+                    this.send(await this.api.init(6))
                 }
                 else console.log('connection failed')
                 break
             case 10: // order
                 break;
             case 3: // data
-                console.log(op + ' ' +data.byteLength);
                 break;
             case 6: // data
-                this.getAssets(d);
-                setTimeout(()=>{
-                    this.subscribeToAsset();
-                },2000)
-                console.log(op + ' ' + data.byteLength);
+                this.processAllAssets(d);
+                this.subscribeToAsset();
+                break;
+            case 8:
+                this.processPriceUpdate(d);
                 break;
             case 11: // historical data
-                this.getHistoricalBars(d);
+                //this.getHistoricalBars(d);
             default:
         }
     }
+    processPriceUpdate(data) {
+        const d = new DataView(data);
+        const prices = []; 
+        for (let i = 0; i < Math.floor(d.byteLength / 14); i++) {
+            const price = this.getPriceInfo(d, i * 14);
+            const asset = this.assets.find(asset => asset.id === price.id);
+
+            asset.bid = price.bid;
+            asset.ask = price.ask;
+
+            if (!this.wantedAssets.includes(asset.name)) continue;
+            if ((Date.now() > this.lastSend + 1000)) {
+                const {name, timeStamp, bid, ask} = price;
+                send(name + '\n' + new Date(timeStamp) + '\n' + bid);
+                this.lastSend = Date.now();
+            }
+        }
+        return prices;
+    }
+    getPriceInfo(data) {
+        const priceInfo = {};
+        let offset = 0;
+        priceInfo.id = data.getInt16(offset, true);
+        priceInfo.name = this.assets.find(asset => asset.id === priceInfo.id).name
+        priceInfo.timeStamp = data.getInt32(offset += 2, true) * 1000;
+
+        let type = priceInfo.timeStamp === 0 ? 'Int' : 'Float';
+
+        priceInfo.bid = data['get' + type + '32'](offset += 4, true).toFixed(5);
+        priceInfo.ask = data['get' + type + '32'](offset += 4, true).toFixed(5);
+
+        return priceInfo
+    }
     async subscribeToAsset() {
-        this.send(await this.api.getData(11, this.api.requestAsset()));
+        const assets = [this.assets.find(asset => asset.name === 'XAUUSD.b').id];
+
+        const buffer = new DataView(new ArrayBuffer(2 * assets.length + 2));
+
+        let offset = 0;
+        buffer.setInt16(offset, assets.length, true);
+
+        for (let i = 0; i < assets.length; i++) {
+            buffer.setInt16(offset += 2, assets[i], true)
+        }
+        
+        this.send(await this.api.init(7, buffer.buffer));
+    }
+    async getHistoricalAsset() {
+        this.send(await this.api.init(11, this.requestAsset()));
     }
     getHistoricalBars(data) {
         const d = new DataView(data);
         const bars = [];
         for (let i = 0; i < Math.floor(d.byteLength / 28); i++) {
-            const bar = this.api.getBars(d, 28 * i);
+            const bar = this.getBars(d, 28 * i);
             bars.push(bar);
         }
-        console.log(bars)
+        send(bars.toString().substring(0,100))
         return bars;
     }
-    getAssets(data) {
+    getBars(data, offset) {
+        const d = [];
+        d[0] = 1000 * data.getInt32(offset, true);
+        d[1] = data.getInt32(offset += 4, true);
+        d[2] = data.getInt32(offset += 4, true);
+        d[3] = data.getInt32(offset += 4, true);
+        d[4] = data.getInt32(offset += 4, true);
+        d[5] = data.getFloat64(offset + 4, true);
+
+        // Maintains precision 
+        const digits = Math.pow(10, 3);
+        d[2] += d[1];
+        d[3] += d[1];
+        d[4] += d[1];
+
+        d[1] /= digits;
+        d[2] /= digits;
+        d[3] /= digits;
+        d[4] /= digits;
+        return d
+    }
+    processAllAssets(data) {
         const d = new DataView(data);
         for (let i = 0, h = Math.floor(d.byteLength / 260); i < h; i++) {
-            const asset = this.api.getString8(d, 260 * i, 12);
+            let offset = 260 * i; 
+            const asset = new Asset();
+            asset.name = this.api.getString8(d, offset, 12);
+
+            this.api.getString8(d, offset += 12, 64); // long name
+            this.api.getString8(d, offset += 64, 12); // margin currency
+            d.getInt32(offset += 12, true);           // idk
+
+            asset.digits = d.getInt32(offset += 4, true)
+
+            d.getInt32(offset += 4, true);            // idk
+            offset += 4                               // HEX colour
+
+            asset.id = d.getInt16(offset += 4, true);
+
             this.assets.push(asset)
         }
     }
+    requestAsset(q) {
+        const test_data = {
+            asset: "GBPJPY.b",
+            period: 1,
+            from: 0,
+            to: Date.now(),
+        }
+        const {asset, period, from, to} = test_data
+        let offset = 0;
+        const data = new DataView(new ArrayBuffer(24))
 
+        for (let i = 0; i < asset.length; i++) {
+            data.setInt8(i, asset.charCodeAt(i), true)
+        }
+
+        data.setInt32(offset += 12, period, true); // period (minutes) eg 1
+        data.setInt32(offset += 4, from / 1000, true); // from
+        data.setInt32(offset + 4, to ? to / 1000 : 2147483647, true); // to
+        return data.buffer; 
+    }
     onclose() {
         console.log('closed')
     }
-    send(buf) {
-        if(this.socket && this.socket.readyState === WebSocket.OPEN) {
 
-            const offsetByteLength = 8; // extra memory to store message length
-            const msgLength = buf.byteLength || 0;
-        
-            var dataAlias = new Uint8Array(offsetByteLength + msgLength);
-            dataAlias.set(new Uint8Array(buf), offsetByteLength);
-            dataAlias = dataAlias.buffer;
-        
-            const data = new DataView(dataAlias);
-            data.setUint32(0, msgLength, true);
-            data.setUint32(4, 1, true);
+    async send(buf) {
+        if(!this.socket && this.socket.readyState === WebSocket.OPEN) return;
 
-            this.socket.send(data.buffer);
-        }
+        if (this.encryption) buf = await this.api.encrypt(buf);
+
+        const offsetByteLength = 8; // extra memory to store message length
+        const msgLength = buf.byteLength || 0;
+    
+        var dataAlias = new Uint8Array(offsetByteLength + msgLength);
+        dataAlias.set(new Uint8Array(buf), offsetByteLength);
+        dataAlias = dataAlias.buffer;
+    
+        const data = new DataView(dataAlias);
+        data.setUint32(0, msgLength, true);
+        data.setUint32(4, 1, true);
+
+        this.socket.send(data.buffer);
     }
 }
 
 // chart 1700325136524_graph
-async function main() {
-    const info = await fetch('89000015', 'EightcapLtd-Real2')
+async function main({username, password, server}) {
+    const info = await fetch(username, server)
 
     const data = await info.json()
 
@@ -134,10 +237,16 @@ async function main() {
         token: data.token
     }
 
-    new bot('wss://' + data.signal_server + '/', user_info)
+    new bot('wss://' + data.signal_server + '/', user_info, password)
 
 }
 
-main()
+const creds = {
+    username: '89000015',
+    password: 'TU6sIxL',
+    server: 'EightcapLtd-Real2'
+}
+
+main(creds)
 
 

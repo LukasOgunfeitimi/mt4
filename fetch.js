@@ -17,7 +17,7 @@ module.exports = (login, server) => {
       "Referer": "https://metatraderweb.app/trade",
       "Referrer-Policy": "strict-origin-when-cross-origin"
     },
-    "body": `login=${login}&trade_server=${server}&gwt=2`,
+    "body": `login=${login}&trade_server=${server}&gwt=6`,
     "method": "POST"
   })
 }
