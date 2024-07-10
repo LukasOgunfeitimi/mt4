@@ -41,11 +41,11 @@ class Asset {
 
         for (let i = this.history.length - 2; i >= 0; i--) {
             const oldPrice = this.history[i].bid;
-            const diff = Math.abs(bid - oldPrice).toFixed(2);
+            const diff = bid - oldPrice;
 
             //const diff = Math.abs((bid - oldPrice) / oldPrice * 100).toFixed(2);
 
-            if (diff > this.diffThreshold) {
+            if (Math.abs(diff) > this.diffThreshold) {
                 let msg = this.name + ' changing at ' + diff + '\n' + 'Current: ' + price.bid + '\nOld: ' + oldPrice;
                 send(msg)
                 console.log('Old: ' + oldPrice + ' New: ' + bid + ' Diff: ' + Math.abs(diff));
