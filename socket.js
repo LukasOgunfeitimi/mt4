@@ -10,7 +10,7 @@ class bot {
         this.socket = null;
         this.api = new MT4(user_info, password);
         this.user_info = user_info;
-        this.wantedAssets = ['XAUUSD.b']
+        this.wantedAssets = ['XAUUSD.b', 'GBPJPY.b', 'BTCUSD.b', 'ETHUSD.b']
         this.assets = [];
         this.encryption = false;
         this.lastSend = 0;
@@ -85,15 +85,9 @@ class bot {
             const price = this.getPriceInfo(d, i * 14);
             const asset = this.assets.find(asset => asset.id === price.id);
 
-            asset.bid = price.bid;
-            asset.ask = price.ask;
-
-            if (!this.wantedAssets.includes(asset.name)) continue;
-            if ((Date.now() > this.lastSend + 1000)) {
-                const {name, timeStamp, bid, ask} = price;
-                send(name + '\n' + new Date(timeStamp) + '\n' + bid);
-                this.lastSend = Date.now();
-            }
+            if (!(this.wantedAssets.includes(asset.name))) continue;
+            
+            asset.processNewPrice(price);
         }
         return prices;
     }
@@ -101,7 +95,10 @@ class bot {
         const priceInfo = {};
         let offset = 0;
         priceInfo.id = data.getInt16(offset, true);
-        priceInfo.name = this.assets.find(asset => asset.id === priceInfo.id).name
+
+        const asset = this.assets.find(asset => asset.id === priceInfo.id);
+
+        priceInfo.name = asset.name
         priceInfo.timeStamp = data.getInt32(offset += 2, true) * 1000;
 
         let type = priceInfo.timeStamp === 0 ? 'Int' : 'Float';
@@ -109,10 +106,15 @@ class bot {
         priceInfo.bid = data['get' + type + '32'](offset += 4, true).toFixed(5);
         priceInfo.ask = data['get' + type + '32'](offset += 4, true).toFixed(5);
 
+        if (type === 'Int') {
+            priceInfo.bid /= Math.pow(10, asset.digits);
+            priceInfo.ask /= Math.pow(10, asset.digits);
+        }
+
         return priceInfo
     }
     async subscribeToAsset() {
-        const assets = [this.assets.find(asset => asset.name === 'XAUUSD.b').id];
+        const assets = this.wantedAssets.map(asset => this.assets.find(a => a.name === asset).id)
 
         const buffer = new DataView(new ArrayBuffer(2 * assets.length + 2));
 
