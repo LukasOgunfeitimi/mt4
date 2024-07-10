@@ -17,7 +17,7 @@ class Asset {
         if (this.name === 'ETHUSD.b') return 125;
     }
     processNewPrice({timeStamp, bid}) {
-        const minute = 1000;
+        const minute = 1000 * 60;
 
         const lastPrice = this.history[this.history.length - 1];
 
@@ -49,6 +49,9 @@ class Asset {
                 let msg = this.name + ' changing at ' + diff + '\n' + 'Current: ' + price.bid + '\nOld: ' + oldPrice;
                 send(msg)
                 console.log('Old: ' + oldPrice + ' New: ' + bid + ' Diff: ' + Math.abs(diff));
+
+                this.history = [];
+                break;
             }
         }
         /*
@@ -60,7 +63,6 @@ class Asset {
         let msg = this.name + ' changing at ' + diff + '\n' + 'Current: ' + price.bid + '\nOld: ' + oldPrice;
         send(msg)
         */
-        return false;
     }
 }
 
