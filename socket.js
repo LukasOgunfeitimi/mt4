@@ -10,7 +10,12 @@ class bot {
         this.socket = null;
         this.api = new MT4(user_info, password);
         this.user_info = user_info;
-        this.wantedAssets = ['XAUUSD.b', 'GBPJPY.b', 'BTCUSD.b', 'ETHUSD.b']
+        this.wantedAssets = {
+            'XAUUSD.b': 15,
+            'GBPJPY.b': 1,
+            'BTCUSD.b': 2000,
+            'ETHUSD.b': 125,
+        };
         this.assets = [];
         this.encryption = false;
         this.lastSend = 0;
@@ -85,7 +90,7 @@ class bot {
             const price = this.getPriceInfo(d, i * 14);
             const asset = this.assets.find(asset => asset.id === price.id);
 
-            if (!(this.wantedAssets.includes(asset.name))) continue;
+            if (!(Object.keys(this.wantedAssets).includes(asset.name))) continue;
             
             asset.processNewPrice(price);
         }
@@ -98,7 +103,7 @@ class bot {
 
         const asset = this.assets.find(asset => asset.id === priceInfo.id);
 
-        priceInfo.name = asset.name
+        priceInfo.name = asset.name;
         priceInfo.timeStamp = data.getInt32(offset += 2, true) * 1000;
 
         let type = priceInfo.timeStamp === 0 ? 'Int' : 'Float';
@@ -114,7 +119,7 @@ class bot {
         return priceInfo
     }
     async subscribeToAsset() {
-        const assets = this.wantedAssets.map(asset => this.assets.find(a => a.name === asset).id)
+        const assets = Object.keys(this.wantedAssets).map(asset => this.assets.find(a => a.name === asset).id)
 
         const buffer = new DataView(new ArrayBuffer(2 * assets.length + 2));
 
@@ -126,6 +131,31 @@ class bot {
         }
         
         this.send(await this.api.init(7, buffer.buffer));
+    }
+    processAllAssets(data) {
+        const d = new DataView(data);
+        for (let i = 0; i < Math.floor(d.byteLength / 260); i++) {
+            let offset = 260 * i; 
+            const asset = new Asset();
+            asset.name = this.api.getString8(d, offset, 12);
+
+            if (!Object.keys(this.wantedAssets).includes(asset.name)) continue;
+
+            asset.diffThreshold = this.wantedAssets[asset.name]; 
+
+            this.api.getString8(d, offset += 12, 64); // long name
+            this.api.getString8(d, offset += 64, 12); // margin currency
+            d.getInt32(offset += 12, true);           // idk
+
+            asset.digits = d.getInt32(offset += 4, true);
+
+            d.getInt32(offset += 4, true);            // idk
+            offset += 4                               // HEX colour
+
+            asset.id = d.getInt16(offset += 4, true);
+
+            this.assets.push(asset);
+        }
     }
     async getHistoricalAsset() {
         this.send(await this.api.init(11, this.requestAsset()));
@@ -160,27 +190,6 @@ class bot {
         d[3] /= digits;
         d[4] /= digits;
         return d
-    }
-    processAllAssets(data) {
-        const d = new DataView(data);
-        for (let i = 0, h = Math.floor(d.byteLength / 260); i < h; i++) {
-            let offset = 260 * i; 
-            const asset = new Asset();
-            asset.name = this.api.getString8(d, offset, 12);
-
-            this.api.getString8(d, offset += 12, 64); // long name
-            this.api.getString8(d, offset += 64, 12); // margin currency
-            d.getInt32(offset += 12, true);           // idk
-
-            asset.digits = d.getInt32(offset += 4, true)
-
-            d.getInt32(offset += 4, true);            // idk
-            offset += 4                               // HEX colour
-
-            asset.id = d.getInt16(offset += 4, true);
-
-            this.assets.push(asset)
-        }
     }
     requestAsset(q) {
         const test_data = {
