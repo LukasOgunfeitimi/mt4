@@ -40,8 +40,7 @@ class MT4 {
         this.encryption_keys.forth = await subtle.importKey('raw', this.normalizeKey(this.createKey(IC)), this.cipher, true, ["encrypt", "decrypt"])
         
         this.encryption_keys.main = await subtle.importKey('raw', this.normalizeKey(this.user_info.key), this.cipher, true, ["encrypt", "decrypt"])
-
-        console.log("Encryption keys initialised")
+      console.log("Encryption keys initialised")
     }
     async token() {
         const token = this.write8(this.user_info.token)
@@ -103,7 +102,6 @@ class MT4 {
         const password = this.write16(this.password, 64 + 16);
         const window_spec = this.normalizeKey('67068786ddd67fb402e56d865f299372'); // ['518842620158', 'Win32', 'WebKit', '0', 'en-GB', '2560x1440']
         const pw_buf = this.init(this.op_codes.password, this.pw_window_Js(password, window_spec))
-
         return pw_buf;
     }
     //Js()
@@ -156,3 +154,4 @@ class MT4 {
 }
  
 module.exports = MT4
+

@@ -1,4 +1,5 @@
 const fetch = require('node-fetch')
+
 function req(url, headers, method, payload, ops={method: method, headers: headers}) {
     if (payload) ops.body = payload
     return new Promise((resolve)=>{
@@ -14,6 +15,7 @@ const wh = 'https://discord.com/api/webhooks/1259628968508788908/Fu60NYaw7JMIeKY
 const headers = {
     'Content-type': 'application/json'
 }
+
 
 function send(msg) {
     const payload = {

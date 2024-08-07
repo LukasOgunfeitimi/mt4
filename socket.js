@@ -1,7 +1,7 @@
 const WebSocket = require('ws');
 const fetch = require('./fetch.js')
 const MT4 = require('./api.js')
-const send = require('./prices.js')
+const send = require('./webhook.js')
 const Asset = require('./asset.js')
 
 class bot {
@@ -11,10 +11,10 @@ class bot {
         this.api = new MT4(user_info, password);
         this.user_info = user_info;
         this.wantedAssets = {
-            'XAUUSD.b': 15,
-            'GBPJPY.b': 1,
-            'BTCUSD.b': 2000,
-            'ETHUSD.b': 125,
+            'XAUUSD': 15,
+            'GBPJPY': 1,
+            'BTCUSD': 2000,
+            'ETHUSD': 125,
         };
         this.assets = [];
         this.encryption = false;
@@ -88,6 +88,7 @@ class bot {
         const prices = []; 
         for (let i = 0; i < Math.floor(d.byteLength / 14); i++) {
             const price = this.getPriceInfo(d, i * 14);
+            if (!price) continue;
             const asset = this.assets.find(asset => asset.id === price.id);
 
             if (!(Object.keys(this.wantedAssets).includes(asset.name))) continue;
@@ -102,20 +103,20 @@ class bot {
         priceInfo.id = data.getInt16(offset, true);
 
         const asset = this.assets.find(asset => asset.id === priceInfo.id);
+        if (!asset) return;
 
         priceInfo.name = asset.name;
         priceInfo.timeStamp = data.getInt32(offset += 2, true) * 1000;
 
         let type = priceInfo.timeStamp === 0 ? 'Int' : 'Float';
 
-        priceInfo.bid = data['get' + type + '32'](offset += 4, true).toFixed(5);
-        priceInfo.ask = data['get' + type + '32'](offset += 4, true).toFixed(5);
+        priceInfo.bid = data['get' + type + '32'](offset += 4, true).toFixed(asset.digits);
+        priceInfo.ask = data['get' + type + '32'](offset += 4, true).toFixed(asset.digits);
 
         if (type === 'Int') {
             priceInfo.bid /= Math.pow(10, asset.digits);
             priceInfo.ask /= Math.pow(10, asset.digits);
         }
-
         return priceInfo
     }
     async subscribeToAsset() {
@@ -129,6 +130,9 @@ class bot {
         for (let i = 0; i < assets.length; i++) {
             buffer.setInt16(offset += 2, assets[i], true)
         }
+        
+        send("listeneing for " + JSON.stringify(this.wantedAssets));
+        console.log(this.wantedAssets);
         
         this.send(await this.api.init(7, buffer.buffer));
     }
@@ -167,7 +171,7 @@ class bot {
             const bar = this.getBars(d, 28 * i);
             bars.push(bar);
         }
-        send(bars.toString().substring(0,100))
+        //send(bars.toString().substring(0,100))
         return bars;
     }
     getBars(data, offset) {
@@ -211,14 +215,18 @@ class bot {
         data.setInt32(offset + 4, to ? to / 1000 : 2147483647, true); // to
         return data.buffer; 
     }
-    onclose() {
+    onclose(e) {
         console.log('closed')
+        send("connection closed attempting reconneciton :\n" + e);
+        setTimeout(this.connect, 2500);
     }
 
     async send(buf) {
         if(!this.socket && this.socket.readyState === WebSocket.OPEN) return;
 
-        if (this.encryption) buf = await this.api.encrypt(buf);
+        if (this.encryption) {
+            buf = await this.api.encrypt(buf);
+        }
 
         const offsetByteLength = 8; // extra memory to store message length
         const msgLength = buf.byteLength || 0;
@@ -247,15 +255,15 @@ async function main({username, password, server}) {
         key: data.key,
         token: data.token
     }
-
+    
     new bot('wss://' + data.signal_server + '/', user_info, password)
 
 }
 
 const creds = {
-    username: '89000015',
-    password: 'TU6sIxL',
-    server: 'EightcapLtd-Real2'
+    username: '12686389',
+    password: 'jycf51',
+    server: 'ICMarketsSC-Demo01'
 }
 
 main(creds)

@@ -1,6 +1,6 @@
-const send = require('./prices.js')
+const send = require('./webhook.js')
 
-class Asset {
+class Asset {     
     constructor(name, id, digits) {
         this.name = name;
         this.id = id;
@@ -11,7 +11,7 @@ class Asset {
         this.diffThreshold;
     }
     processNewPrice({timeStamp, bid}) {
-        const minute = 1000;
+        const minute = 1000 * 60;
 
         const lastPrice = this.history[this.history.length - 1];
 
@@ -36,12 +36,22 @@ class Asset {
         for (let i = this.history.length - 2; i >= 0; i--) {
             const oldPrice = this.history[i].bid;
 
-            const diff = bid - oldPrice;
+            const diff = (bid - oldPrice).toFixed(2);
             //const diff = Math.abs((bid - oldPrice) / oldPrice * 100).toFixed(2); // % diff
 
             if (Math.abs(diff) >= this.diffThreshold) {
-                let msg = this.name + ' changing at ' + diff + '\n' + 'Current: ' + price.bid + '\nOld: ' + oldPrice;
-                send(msg)
+                let msg = this.name 
+                + ' changing at ' 
+                + diff > 0 ? '+' : ''
+                + diff 
+                + '%\n' 
+                + 'Current: ' 
+                + price.bid 
+                + '\nOld: ' 
+                + oldPrice;
+
+
+                send(msg);
                 console.log('Old: ' + oldPrice + ' New: ' + bid + ' Diff: ' + Math.abs(diff));
                 this.history = [];
                 break;
