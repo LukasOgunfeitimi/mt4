@@ -40,7 +40,7 @@ class MT4 {
         this.encryption_keys.forth = await subtle.importKey('raw', this.normalizeKey(this.createKey(IC)), this.cipher, true, ["encrypt", "decrypt"])
         
         this.encryption_keys.main = await subtle.importKey('raw', this.normalizeKey(this.user_info.key), this.cipher, true, ["encrypt", "decrypt"])
-      console.log("Encryption keys initialised")
+        console.log("Encryption keys initialised")
     }
     async token() {
         const token = this.write8(this.user_info.token)

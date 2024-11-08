@@ -15,6 +15,7 @@ class bot {
             'GBPJPY': 1,
             'BTCUSD': 2000,
             'ETHUSD': 125,
+            'US30'  : 250
         };
         this.assets = [];
         this.encryption = false;
@@ -101,7 +102,7 @@ class bot {
         const priceInfo = {};
         let offset = 0;
         priceInfo.id = data.getInt16(offset, true);
-
+        
         const asset = this.assets.find(asset => asset.id === priceInfo.id);
         if (!asset) return;
 
@@ -131,7 +132,7 @@ class bot {
             buffer.setInt16(offset += 2, assets[i], true)
         }
         
-        send("listeneing for " + JSON.stringify(this.wantedAssets));
+        send("listening for " + Object.keys(this.wantedAssets).length + " assets", JSON.stringify(this.wantedAssets));
         console.log(this.wantedAssets);
         
         this.send(await this.api.init(7, buffer.buffer));
@@ -160,6 +161,7 @@ class bot {
 
             this.assets.push(asset);
         }
+        console.log(this.assets)
     }
     async getHistoricalAsset() {
         this.send(await this.api.init(11, this.requestAsset()));
@@ -243,6 +245,11 @@ class bot {
     }
 }
 
+// todo:
+// http server:
+//  alerts
+//  being able to change frequency
+let alerter;
 // chart 1700325136524_graph
 async function main({username, password, server}) {
     const info = await fetch(username, server)
@@ -256,10 +263,14 @@ async function main({username, password, server}) {
         token: data.token
     }
     
-    new bot('wss://' + data.signal_server + '/', user_info, password)
-
+    alerter = new bot('wss://' + data.signal_server + '/', user_info, password)
 }
-
+setTimeout(()=> {
+    const a = alerter.assets.find(a => a.name === "BTCUSD");
+    a.diffThreshold = 1;
+    a.historyInterval = 10;
+    console.log("changed to fast interval");
+}, 5000)
 const creds = {
     username: '12686389',
     password: 'jycf51',

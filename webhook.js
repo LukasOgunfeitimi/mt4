@@ -17,10 +17,10 @@ const headers = {
 }
 
 
-function send(msg) {
+function send(name, msg) {
     const payload = {
-        username: "Alert",
-        avatar_url: "",
+        username: name,
+        avatar_url: "https://i.imgur.com/4GXdH9F.png",
         content: '<@109213512366071808> ' + msg 
     }
     req(wh, headers, 'POST', JSON.stringify(payload)).then(e => {

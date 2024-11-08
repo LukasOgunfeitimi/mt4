@@ -8,11 +8,12 @@ class Asset {
         this.bid;
         this.ask;
         this.history = [];
+        this.historyInterval = 1000 * 60; // how often do we log a new price
+        this.historyMaxLength = 60; // how many times we log historyInterval until we delete the oldest price
         this.diffThreshold;
+        this.shown = false;
     }
     processNewPrice({timeStamp, bid}) {
-        const minute = 1000 * 60;
-
         const lastPrice = this.history[this.history.length - 1];
 
         if (!lastPrice) {
@@ -22,51 +23,35 @@ class Asset {
 
         const getLatestMinute = lastPrice.timeStamp
         const priceMinute = timeStamp;
-
-
-        if (!(priceMinute > getLatestMinute + minute)) return;
-
-        const price = {
-            timeStamp,
-            bid
+        
+        if (!this.shown) {
+            this.shown = true;
+            console.log(this.name + " " + bid);
         }
-        if (this.history.length === 60) this.history.shift();
+        
+        if (!(priceMinute > getLatestMinute + this.historyInterval)) return;
+
+        const price = { timeStamp, bid}
+
+        if (this.history.length === this.historyMaxLength) this.history.shift();
         this.history.push(price);
 
         for (let i = this.history.length - 2; i >= 0; i--) {
             const oldPrice = this.history[i].bid;
 
-            const diff = (bid - oldPrice).toFixed(2);
+            const diff = (bid - oldPrice).toFixed(this.digits);
             //const diff = Math.abs((bid - oldPrice) / oldPrice * 100).toFixed(2); // % diff
+            if (Math.abs(diff) < this.diffThreshold) continue;
 
-            if (Math.abs(diff) >= this.diffThreshold) {
-                let msg = this.name 
-                + ' changing at ' 
-                + diff > 0 ? '+' : ''
-                + diff 
-                + '%\n' 
-                + 'Current: ' 
-                + price.bid 
-                + '\nOld: ' 
-                + oldPrice;
+            const direction = diff > 0 ? '+' : '';
+            const change = `${this.name} ${direction}${diff}`;
+            const prices = `Old: ${oldPrice} New: ${price.bid}`;
 
-
-                send(msg);
-                console.log('Old: ' + oldPrice + ' New: ' + bid + ' Diff: ' + Math.abs(diff));
-                this.history = [];
-                break;
-            }
+            send(change, change + '\n' + prices);
+            console.log('Old: ' + oldPrice + ' New: ' + bid + ' Diff: ' + Math.abs(diff));
+            this.history = [];
+            break;
         }
-        /*
-        const oldPrice = this.history[0].bid;
-        const diff = Math.abs(bid - oldPrice).toFixed(5);
-        //const diff = Math.abs((price.bid - oldPrice) / oldPrice * 100).toFixed(2);
-
-        console.log(this.name + ' Old: ' + oldPrice + ' New: ' + price.bid + ' Diff: ' + Math.abs(diff));
-        //let msg = this.name + ' changing at ' + diff + '\n' + 'Current: ' + price.bid + '\nOld: ' + oldPrice;
-        //send(msg)
-        */
-        
     }
 }
 
