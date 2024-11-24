@@ -47,7 +47,7 @@ class Asset {
             const change = `${this.name} ${direction}${diff}`;
             const prices = `Old: ${oldPrice} New: ${price.bid}`;
 
-            send(change, change + '\n' + prices);
+            send(1, change, change + '\n' + prices);
             console.log('Old: ' + oldPrice + ' New: ' + bid + ' Diff: ' + Math.abs(diff));
             this.history = [];
             break;

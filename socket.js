@@ -3,7 +3,7 @@ const fetch = require('./fetch.js')
 const MT4 = require('./api.js')
 const send = require('./webhook.js')
 const Asset = require('./asset.js')
-
+const Coinbase = require('./coinbase.js');
 class bot {
     constructor(server, user_info, password) {
         this.server = server
@@ -277,6 +277,30 @@ const creds = {
     server: 'ICMarketsSC-Demo01'
 }
 
+let previousProfit = undefined;
+let thresholdAlerter = 250; // alert every time the profit jumps this amount
+
+async function CheckCoinbase() {
+    const data = await Coinbase();
+
+    if (!data) return;
+
+    const profit = data.profit;
+
+    if (!previousProfit) {
+        previousProfit = profit;
+        return;
+    }
+
+    const diff = previousProfit - profit;
+
+    if (Math.abs(diff) >= thresholdAlerter) {
+        const direction = diff > 0 ? 'increasing' : 'decreasing';
+        previousProfit = profit;
+        send(2, "Profit " + direction, '£' + profit);
+    }
+        
+}
 main(creds)
 
 
