@@ -16,11 +16,15 @@ const headers = {
     'Content-type': 'application/json'
 }
 
+const avatar_urls = {
+    1: "https://i.imgur.com/4GXdH9F.png",
+    2: "https://i.imgur.com/DaCG08H.png",
+}
 
-function send(name, msg) {
+function send(type, name, msg) {
     const payload = {
         username: name,
-        avatar_url: "https://i.imgur.com/4GXdH9F.png",
+        avatar_url: avatar_urls[type],
         content: '<@109213512366071808> ' + msg 
     }
     req(wh, headers, 'POST', JSON.stringify(payload)).then(e => {
