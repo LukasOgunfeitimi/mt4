@@ -19,7 +19,6 @@ class bot {
         };
         this.assets = [];
         this.encryption = false;
-        this.lastSend = 0;
         this.connect()
     }
     async connect() {
@@ -267,7 +266,8 @@ async function main({username, password, server}) {
 }
 setTimeout(()=> {
     const a = alerter.assets.find(a => a.name === "BTCUSD");
-    a.diffThreshold = 1;
+	
+    a.diffPriceThreshold = 1;
     a.historyInterval = 10;
     console.log("changed to fast interval");
 }, 5000)

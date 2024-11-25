@@ -10,7 +10,7 @@ class Asset {
         this.history = [];
         this.historyInterval = 1000 * 60; // how often do we log a new price
         this.historyMaxLength = 60; // how many times we log historyInterval until we delete the oldest price
-        this.diffThreshold;
+        this.diffPriceThreshold;
         this.shown = false;
     }
     processNewPrice({timeStamp, bid}) {
@@ -31,9 +31,10 @@ class Asset {
         
         if (!(priceMinute > getLatestMinute + this.historyInterval)) return;
 
-        const price = { timeStamp, bid}
+        const price = { timeStamp, bid };
 
         if (this.history.length === this.historyMaxLength) this.history.shift();
+		
         this.history.push(price);
 
         for (let i = this.history.length - 2; i >= 0; i--) {
@@ -41,7 +42,7 @@ class Asset {
 
             const diff = (bid - oldPrice).toFixed(this.digits);
             //const diff = Math.abs((bid - oldPrice) / oldPrice * 100).toFixed(2); // % diff
-            if (Math.abs(diff) < this.diffThreshold) continue;
+            if (Math.abs(diff) < this.diffPriceThreshold) continue;
 
             const direction = diff > 0 ? '+' : '';
             const change = `${this.name} ${direction}${diff}`;
