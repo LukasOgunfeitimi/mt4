@@ -264,19 +264,20 @@ async function main({username, password, server}) {
     
     alerter = new bot('wss://' + data.signal_server + '/', user_info, password)
 }
-setTimeout(()=> {
-    const a = alerter.assets.find(a => a.name === "BTCUSD");
-	
-    a.diffPriceThreshold = 1;
-    a.historyInterval = 10;
-    console.log("changed to fast interval");
-}, 5000)
+//setTimeout(()=> {
+//    const a = alerter.assets.find(a => a.name === "BTCUSD");
+//	
+//    a.diffPriceThreshold = 1;
+//    a.historyInterval = 10;
+//    console.log("changed to fast interval");
+//}, 5000)
 const creds = {
     username: '12686389',
     password: 'jycf51',
     server: 'ICMarketsSC-Demo01'
 }
 
+let checkInterval = 1000 * 60 * 60; // check every hour
 let previousProfit = undefined;
 let thresholdAlerter = 250; // alert every time the profit jumps this amount
 
@@ -299,8 +300,9 @@ async function CheckCoinbase() {
         previousProfit = profit;
         send(2, "Profit " + direction, '£' + profit);
     }
-        
 }
-main(creds)
+
+setInterval(CheckCoinbase, checkInterval);
+//main(creds)
 
 
