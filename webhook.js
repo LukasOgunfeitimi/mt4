@@ -10,7 +10,7 @@ function req(url, headers, method, payload, ops={method: method, headers: header
     })
 }
 
-const wh = 'https://discord.com/api/webhooks/1259628968508788908/Fu60NYaw7JMIeKYpSn0Q-kFVkPQyrE5vFlUjt0Ozt2aAetvAiofBfZaeRbxzHTU9kau9';
+const wh = '';
 
 const headers = {
     'Content-type': 'application/json'
